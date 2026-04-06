@@ -116,8 +116,6 @@ def extract_document_number(text):
     patterns = [
         r"Truck\s*No\.?\s*[:#]?\s*([A-Z0-9\-\/]+)",
         r"Truck\s*[:#]?\s*([A-Z0-9\-\/]+)",
-        r"LKW\s*No\.?\s*[:#]?\s*([A-Z0-9\-\/]+)",
-        r"LKW\s*[:#]?\s*([A-Z0-9\-\/]+)",
     ]
 
     for pattern in patterns:
@@ -133,26 +131,20 @@ def is_table_header(line):
 
     item_words = [
         "item",
-        "artikelnr.",
         "artikelnr",
+        "artikelnr.",
     ]
 
     desc_words = [
         "descr",
-        "beschr.",
         "beschr",
-    ]
-
-    unit_words = [
-        "einh.",
-        "einh",
+        "beschr.",
     ]
 
     has_item = any(word in line_lower for word in item_words)
     has_desc = any(word in line_lower for word in desc_words)
-    has_unit = any(word in line_lower for word in unit_words)
 
-    return (has_item and has_desc) or (has_item and has_unit) or (has_desc and has_unit)
+    return has_item and has_desc
 
 
 def is_end_of_table(line):
@@ -160,9 +152,25 @@ def is_end_of_table(line):
 
     end_words = [
         "total colli",
+        "anzahl colli",
+        "anzahl colli:",
     ]
 
     return any(word in line_lower for word in end_words)
+
+
+def extract_colli_number(line):
+    patterns = [
+        r"colli\s*#?\s*([0-9]+)",
+        r"colli\s*nr\.?\s*[:#]?\s*([0-9]+)",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, line, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+
+    return ""
 
 
 def load_pages_from_upload(uploaded_file):
@@ -237,13 +245,9 @@ def process_delivery_files(delivery_files):
             line = " ".join(line.split())
             line_lower = line.lower()
 
-            colli_match = re.search(
-                r"(colli\s*nr\.?|colli)\s*[:#]?\s*([0-9]+)",
-                line,
-                re.IGNORECASE
-            )
-            if colli_match:
-                current_colli = colli_match.group(2).strip()
+            detected_colli = extract_colli_number(line)
+            if detected_colli:
+                current_colli = detected_colli
 
             if is_table_header(line):
                 capture = True
@@ -252,8 +256,11 @@ def process_delivery_files(delivery_files):
             if not capture:
                 continue
 
-            line = re.split(r"(total\s+colli)", line, flags=re.IGNORECASE)[0].strip()
-            line_lower = line.lower()
+            line = re.split(
+                r"(total\s+colli|anzahl\s+colli\s*:?)",
+                line,
+                flags=re.IGNORECASE
+            )[0].strip()
 
             if is_end_of_table(line):
                 capture = False
@@ -274,7 +281,7 @@ def process_delivery_files(delivery_files):
             unit = None
 
             qty_match = re.search(
-                r"(.+?)\s+([\d.,]+)\s+(piece|pcs?|bundle|kg|pc|roll|rolle|set|sets|meter|metre|each|stück|stk|stck|einh\.)\b",
+                r"(.+?)\s+([\d.,]+)\s+(piece|stück|pcs?|bundle|kg|pc|roll|rolle|set|sets|meter|metre|each|einh\.?)\b",
                 remainder,
                 re.IGNORECASE,
             )
