@@ -300,9 +300,9 @@ def process_delivery_files(delivery_files):
             preview_images.append((f"{uploaded_file.name} - Page {page_index}", processed_img))
 
             text = pytesseract.image_to_string(
-                processed_img,
-                config="--psm 6 -c preserve_interword_spaces=1"
-            )
+    processed_img,
+    config="--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-.,/"
+)
 
             ocr_text_records.append(
                 {
